@@ -1,0 +1,97 @@
+#Import Dataset
+creditcard <- read.csv("~/creditcardfraud/creditcard.csv")
+
+#Import Libraries
+library(caret)
+library(ROSE)
+
+#Remove unused variable
+creditcard <- creditcard[,-1]
+
+#Class Variable into Factor
+creditcard$Class <- as.factor(creditcard$Class)
+
+#Split Data into training and testing
+set.seed(1234)
+trainIndex = createDataPartition(creditcard$Class,p=0.70,list=F,times = 1)
+Train <- creditcard[trainIndex,]
+Test <- creditcard[-trainIndex,]
+
+#Creation of ROSE credit card dataset
+creditcard.rose <- ROSE(Class ~ ., data=Train, seed=1234)$data
+table(creditcard.rose$Class)
+
+#Over Sampled
+over <- ovun.sample(Class~., data = Train, method = "over", N = 284316)$data
+table(over$Class)
+
+#Under Sampled
+under <- ovun.sample(Class~., data=Train, method = "under", N = 492)$data
+table(under$Class)
+
+
+#Parameters set for ML model
+control <- trainControl(method = 'repeatedcv',number=3,repeats = 3)
+metric <-"Accuracy"
+
+
+#Linear Discriminante Analysis 
+fit.lda.rose <- train(Class~.,data=creditcard.rose,method = 'lda',metric = metric, trControl = control)
+fit.lda.over <- train(Class~.,data=over ,method = 'lda',metric = metric, trControl = control)
+fit.lda.under <- train(Class~.,data=under ,method = 'lda',metric = metric, trControl = control)
+
+#Results
+fit.lda.rose
+fit.lda.rose$results
+fit.lda.over
+fit.lda.over$results
+fit.lda.under
+fit.lda.under$results
+
+#Gradient Boosting Machine
+fit.gbm.rose <- train(Class~.,data=creditcard.rose,method = 'gbm',metric = metric, trControl = control)
+fit.gbm.over <- train(Class~.,data=over,method = 'gbm',metric = metric, trControl = control)
+fit.gbm.under <- train(Class~.,data=under,method = 'gbm',metric = metric, trControl = control)
+
+#Results
+fit.gbm.rose
+fit.gbm.rose$results
+fit.gbm.over
+fit.gbm.over$results
+fit.gbm.under
+fit.gbm.under$results
+
+#Classification and Regression Tree
+fit.cart.rose <-train(Class~.,data=creditcard.rose ,method = 'rpart',metric = metric, trControl = control)
+fit.cart.over <-train(Class~.,data=over ,method = 'rpart',metric = metric, trControl = control)
+fit.cart.under <-train(Class~.,data=under ,method = 'rpart',metric = metric, trControl = control)
+
+#Results
+fit.cart.rose
+fit.cart.rose$results
+fit.cart.over
+fit.cart.over$results
+fit.cart.under
+fit.cart.under$results
+
+#Rose sampled results for each model
+results1 <- resamples(list(lda=fit.lda.rose, cart=fit.cart.rose, gbm=fit.gbm.rose))
+bwplot(results1)
+
+#Over sampled results for each model
+results2 <- resamples(list(lda=fit.lda.over, cart=fit.cart.over, gbm=fit.gbm.over))
+bwplot(results2)
+
+#Under sampled results for each model
+results3 <- resamples(list(lda=fit.lda.under, cart=fit.cart.under, gbm=fit.gbm.under))
+bwplot(results3)
+
+#Summary of results
+summary(results1)
+summary(results2)
+summary(results3)
+
+#Confusion Matrix to evaluate model
+confusionMatrix(predict(fit.lda.rose, Test), Test$Class, positive = '1')
+confusionMatrix(predict(fit.gbm.rose, Test), Test$Class, positive = '1')
+confusionMatrix(predict(fit.cart.rose, Test), Test$Class, positive = '1')
